@@ -26,6 +26,8 @@ struct KlineStandardiseBranch {
 	KlineDir nextPenDir;
 };
 
+StandardKlines gStandardKline;
+
 static inline bool KlineIsUp(const Kline& standardLeft, const Kline& srcRight)
 {
 	if (standardLeft.high < srcRight.high && standardLeft.low < srcRight.low) {
