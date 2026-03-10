@@ -1,6 +1,7 @@
 #include <vector>
 #include <algorithm>
 #include <afxwin.h>  
+#include <afxmt.h>
 #include "../TdxApi/PluginTCalcFunc.h"
 #include "kline_standardise.h"
 
@@ -16,8 +17,15 @@ struct Kline {
 	int valid; //  «∑Ò”––ß
 };
 
+CCriticalSection g_kline_cs;
 std::vector<Kline> g_std_kline;
 typedef void (*pKlineStandardiseHandle) (const Kline& standardLeft, const Kline& srcRight);
+
+std::vector<Kline>& GetStdKline()
+{
+	CSingleLock lock(&g_kline_cs, TRUE);
+	return g_std_kline;
+}
 
 struct KlineStandardiseBranch {
 	KlineDir penDir;
@@ -59,15 +67,27 @@ static KlineDir KlineGetDir(const Kline& standardLeft, const Kline& srcRight)
 	}
 }
 
+
+static void AddFirstKline(const Kline& standardLeft, const Kline& srcRight)
+{
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.emplace_back(srcRight);
+}
+
 static void EliminateInvalidKline(const Kline& standardLeft, const Kline& srcRight)
 {
-	g_std_kline.back().valid = false;
-	g_std_kline.emplace_back(srcRight);
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.back().valid = false;
+	std_kline.emplace_back(srcRight);
 }
 
 static void AddIndependentKline(const Kline& standardLeft, const Kline& srcRight)
 {
-	g_std_kline.emplace_back(srcRight);
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.emplace_back(srcRight);
 }
 
 static void CombineUpKlines(const Kline& standardLeft, const Kline& srcRight)
@@ -77,9 +97,10 @@ static void CombineUpKlines(const Kline& standardLeft, const Kline& srcRight)
 		.low = max(standardLeft.low, srcRight.low),
 		.valid = srcRight.valid,
 	};
-	g_std_kline.back().valid = false;
-
-	g_std_kline.emplace_back(tempLine);
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.back().valid = false;
+	std_kline.emplace_back(tempLine);
 }
 
 static void CombineDownKlines(const Kline& standardLeft, const Kline& srcRight)
@@ -89,9 +110,10 @@ static void CombineDownKlines(const Kline& standardLeft, const Kline& srcRight)
 		.low = min(standardLeft.low, srcRight.low),
 		.valid = srcRight.valid,
 	};
-	g_std_kline.back().valid = false;
-
-	g_std_kline.emplace_back(tempLine);
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.back().valid = false;
+	std_kline.emplace_back(tempLine);
 }
 
 KlineStandardiseBranch gKlineStandardiseTable[] = {
@@ -132,10 +154,10 @@ static void KlineStandardise(int lineNum, float* output, float* high, float* low
 				.low = low[i],
 				.valid = true,
 			};
-			g_std_kline.emplace_back(temp_line);
+			AddFirstKline(temp_line, temp_line);
 			continue;
 		}
-		Kline leftKline = g_std_kline.back();
+		Kline leftKline = GetStdKline().back();
 		Kline rightKline = {
 			.high = high[i],
 			.low = low[i],
@@ -146,37 +168,54 @@ static void KlineStandardise(int lineNum, float* output, float* high, float* low
 	}
 }
 
+static void ReseverStdKlineSize(int kline_num)
+{
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.reserve(kline_num);
+}
+
+static void ClearStdKlineSize()
+{
+	std::vector<Kline>& std_kline = GetStdKline();
+	CSingleLock lock(&g_kline_cs, TRUE);
+	std_kline.clear();
+}
+
 void KlineGetHighSet(int lineNum, float* output, float* high, float* low, float* date)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-	g_std_kline.reserve(lineNum);
+	ReseverStdKlineSize(lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
+	std::vector<Kline>& std_kline = GetStdKline();
 	for (auto i = 0; i < lineNum; i++) {
-		output[i] = g_std_kline[i].high;
+		output[i] = std_kline[i].high;
 	}
-	g_std_kline.clear();
+	ClearStdKlineSize();
 }
 
 void KlineGetLowSet(int lineNum, float* output, float* high, float* low, float* date)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-	g_std_kline.reserve(lineNum);
+	ReseverStdKlineSize(lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
+	std::vector<Kline>& std_kline = GetStdKline();
 	for (auto i = 0; i < lineNum; i++) {
-		output[i] = g_std_kline[i].low;
+		output[i] = std_kline[i].low;
 	}
-	g_std_kline.clear();
+	ClearStdKlineSize();
 }
 
 void KlineGetValidSet(int lineNum, float* output, float* high, float* low, float* date)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-	g_std_kline.reserve(lineNum);
+	ReseverStdKlineSize(lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
+	std::vector<Kline>& std_kline = GetStdKline();
 	for (auto i = 0; i < lineNum; i++) {
-		output[i] = g_std_kline[i].valid;
+		output[i] = std_kline[i].valid;
 	}
-	g_std_kline.clear();
+	ClearStdKlineSize();
 }
 
 void KlineTestHigh(int lineNum, float* output, float* high, float* low, float* date)
