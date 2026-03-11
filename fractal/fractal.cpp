@@ -65,6 +65,7 @@ static void MarkHigherTopEndpoint(size_t input_idx, size_t& cur_idx)
 	std::vector<Kline> &std_kline = GetStdKline();
 	CSingleLock lock(&g_fractal_cs, TRUE);
 	if (std_kline[input_idx].high >= std_kline[cur_idx].high) {
+		g_fractals[cur_idx].is_endpoint = false;
 		g_fractals[input_idx].is_endpoint = true;
 		cur_idx = input_idx;
 	}
@@ -75,6 +76,7 @@ static void MarkLowerTopEndpoint(size_t input_idx, size_t& cur_idx)
 	std::vector<Kline>& std_kline = GetStdKline();
 	CSingleLock lock(&g_fractal_cs, TRUE);
 	if (std_kline[input_idx].low <= std_kline[cur_idx].low) {
+		g_fractals[cur_idx].is_endpoint = false;
 		g_fractals[input_idx].is_endpoint = true;
 		cur_idx = input_idx;
 	}
@@ -120,26 +122,42 @@ static FractalType GetFractalType(const Kline& left, const Kline& middle, const 
 	}
 }
 
+static void GetFractalKlineIdx(size_t right_idx, size_t &middle_idx, size_t &left_idx)
+{	
+	std::vector<Kline>& std_kline = GetStdKline();
+	int i = right_idx - 1;
+	int idx_num = 0;
+	while (i >= 0) {
+		if (std_kline[i].valid == true) {
+			if (idx_num == 0) {
+				middle_idx = i;
+				idx_num++;
+			}
+			else if (idx_num == 1) {
+				left_idx = i;
+				return;
+			}
+		}
+		i--;
+	}
+}
+
 void MarkAllFractal()
 {
 	std::vector<Kline>& std_kline = GetStdKline();
 
 	CSingleLock lock(&g_fractal_cs, TRUE);
-	g_fractals.reserve(std_kline.size());
+	g_fractals.resize(std_kline.size(), { FractalTypeNone , false});
 	for (auto i = 0; i < std_kline.size(); i++) {
 		if (i < 2) {
-			Fractal fractal = {
-				.type = FractalTypeNone,
-				.is_endpoint = false,
-			};
-			g_fractals.emplace_back(fractal);
 			continue;
 		}
-		Fractal temp_fractal = {
-			.type = GetFractalType(std_kline[i - 2], std_kline[i - 1], std_kline[i]),
-			.is_endpoint = false,
-		};
-		g_fractals.emplace_back(temp_fractal);
+		if (std_kline[i].valid == false) {
+			continue;
+		}
+		size_t left_idx = 0, middle_idx = 0, right_idx = i;
+		GetFractalKlineIdx(right_idx, middle_idx, left_idx);
+		g_fractals[middle_idx].type = GetFractalType(std_kline[left_idx], std_kline[middle_idx], std_kline[right_idx]);
 	}
 }
 
@@ -157,7 +175,7 @@ void RunFindStrokeEndpointMachine(FractalType cur_fractal, FractalType input_fra
 
 bool IsStroke(size_t input_idx, size_t cur_idx)
 {
-	if (cur_idx - input_idx >= 5) {
+	if (input_idx -  cur_idx>= 4) {
 		return true;
 	}
 	return false;
@@ -180,7 +198,6 @@ void TdxGetStrokeEndpoint(int lineNum, float* output, float* high, float* low, f
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	ReseveStdKlineSize(lineNum);
-	ReserveFractals(lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
 	MarkStrokeEndpoint();
 	std::vector<Fractal>& fractals = GetFractals();
@@ -202,7 +219,7 @@ void TdxGetFractalType(int lineNum, float* output, float* high, float* low, floa
 	std::vector<Fractal>& fractals = GetFractals();
 	for (auto i = 0; i < lineNum; i++)
 	{
-		output[i] = fractals[i].is_endpoint;
+		output[i] = fractals[i].type;
 	}
 	ClearStdKlineSize();
 	ClearFractals();
