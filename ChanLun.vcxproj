@@ -185,6 +185,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ChanLun.cpp" />
+    <ClCompile Include="fractal\fractal.cpp" />
     <ClCompile Include="KlineStandard\kline_standardise.cpp" />
     <ClCompile Include="KlineStandard\tdx_callback.cpp" />
     <ClCompile Include="pch.cpp">
@@ -200,6 +201,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ChanLun.h" />
+    <ClInclude Include="fractal\fractal.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="KlineStandard\kline_standardise.h" />
     <ClInclude Include="pch.h" />

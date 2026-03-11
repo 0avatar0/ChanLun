@@ -6,6 +6,7 @@
 #include "ChanLun.h"
 #include "KlineStandard/kline_standardise.h"
 #include "TdxApi/PluginTCalcFunc.h"
+#include "fractal/fractal.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
@@ -70,8 +71,8 @@ PluginTCalcFuncInfo gPluginTCalcFuncSet[] = {
     {1, KlineGetHighSet},
     {2, KlineGetLowSet},
     {3, KlineGetValidSet},
-    {4, KlineTestHigh},
-    {5, KlineTestLow },
+    {4, TdxGetFractalType},
+    {5, TdxGetStrokeEndpoint },
     {0, nullptr},
 };
 

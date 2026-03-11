@@ -1,20 +1,16 @@
+#include "kline_standardise.h"
+
 #include <vector>
 #include <algorithm>
 #include <afxwin.h>  
 #include <afxmt.h>
+
 #include "../TdxApi/PluginTCalcFunc.h"
-#include "kline_standardise.h"
 
 enum KlineDir {
 	KlineDirContain = 0,
 	KlineDirUp,
 	KlineDirDown,
-};
-
-struct Kline {
-	float high;	// 最高值
-	float low;  // 最低值
-	int valid; // 是否有效
 };
 
 CCriticalSection g_kline_cs;
@@ -144,7 +140,7 @@ void RunKlineStandardiseMachine(KlineDir& penDir, KlineDir tempDir, Kline &stand
 	}
 }
 
-static void KlineStandardise(int lineNum, float* output, float* high, float* low, float* date)
+void KlineStandardise(int lineNum, float* output, float* high, float* low, float* date)
 {
 	KlineDir penDir = KlineDirContain;
 	for (int i = 0; i < lineNum; i++) {
@@ -168,14 +164,14 @@ static void KlineStandardise(int lineNum, float* output, float* high, float* low
 	}
 }
 
-static void ReseverStdKlineSize(int kline_num)
+void ReseveStdKlineSize (int kline_num)
 {
 	std::vector<Kline>& std_kline = GetStdKline();
 	CSingleLock lock(&g_kline_cs, TRUE);
 	std_kline.reserve(kline_num);
 }
 
-static void ClearStdKlineSize()
+void ClearStdKlineSize()
 {
 	std::vector<Kline>& std_kline = GetStdKline();
 	CSingleLock lock(&g_kline_cs, TRUE);
@@ -185,7 +181,7 @@ static void ClearStdKlineSize()
 void KlineGetHighSet(int lineNum, float* output, float* high, float* low, float* date)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-	ReseverStdKlineSize(lineNum);
+	ReseveStdKlineSize (lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
 	std::vector<Kline>& std_kline = GetStdKline();
 	for (auto i = 0; i < lineNum; i++) {
@@ -197,7 +193,7 @@ void KlineGetHighSet(int lineNum, float* output, float* high, float* low, float*
 void KlineGetLowSet(int lineNum, float* output, float* high, float* low, float* date)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-	ReseverStdKlineSize(lineNum);
+	ReseveStdKlineSize (lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
 	std::vector<Kline>& std_kline = GetStdKline();
 	for (auto i = 0; i < lineNum; i++) {
@@ -209,7 +205,7 @@ void KlineGetLowSet(int lineNum, float* output, float* high, float* low, float* 
 void KlineGetValidSet(int lineNum, float* output, float* high, float* low, float* date)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-	ReseverStdKlineSize(lineNum);
+	ReseveStdKlineSize (lineNum);
 	KlineStandardise(lineNum, output, high, low, date);
 	std::vector<Kline>& std_kline = GetStdKline();
 	for (auto i = 0; i < lineNum; i++) {
